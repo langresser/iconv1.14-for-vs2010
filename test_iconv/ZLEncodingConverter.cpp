@@ -32,8 +32,9 @@ void ZLEncodingConverter::convert(std::string &dst, const std::string &src) {
 
 IconvEncodingConverter::IconvEncodingConverter(const std::string &encoding) {
 	m_encoding = encoding;
-	m_converter = iconv_open("utf-8//IGNORE", encoding.c_str());
-	//m_converter = iconv_open("gb2312//IGNORE", encoding.c_str());
+//	m_converter = iconv_open("utf-8//TRANSLIT", encoding.c_str());
+//	m_converter = iconv_open("utf-8//IGNORE", encoding.c_str());
+	m_converter = iconv_open("gb18030//IGNORE", encoding.c_str());
 }
 
 IconvEncodingConverter::~IconvEncodingConverter() {
@@ -51,17 +52,38 @@ void IconvEncodingConverter::convert(std::string &dst, const char *srcStart, con
 	}
 
 	int srcLen = srcEnd - srcStart;
-	int outLen = srcLen;
+	int outLen = srcLen * 2;
 
-	char* outBuffer = new char[outLen + 1];
-	memset(outBuffer, 0, outLen);
+// 	if (m_encoding == "utf-8") {
+// 		char* outBuffer = new char[srcLen + 1];
+// 		memcpy(outBuffer, srcStart, srcLen);
+// 		outBuffer[srcLen] = 0;
+// 		dst = outBuffer;
+// 		return;
+// 	}
 
-	// iconv会写tempOutBuffer指针，最终其会指向转换未完成的部分
-	char* tempOutBuffer = outBuffer;
-	size_t ret = iconv(m_converter, &srcStart, (size_t *)&srcLen, &tempOutBuffer, (size_t *)&outLen);
-	dst = outBuffer;
-//	LOGD(dst.c_str());
-	delete[] outBuffer;
+	if (outLen < 1024) {
+		outLen = 1024;
+		static char s_outBuffer[1024] = {0};
+		memset(s_outBuffer, 0, outLen);
+
+		// iconv会写tempOutBuffer指针，最终其会指向转换未完成的部分
+		char* tempOutBuffer = s_outBuffer;
+		size_t ret = iconv(m_converter, (const char**)&srcStart, (size_t *)&srcLen, &tempOutBuffer, (size_t *)&outLen);
+		dst = s_outBuffer;
+//		LOGD(dst.c_str());
+	} else {
+		char* outBuffer = new char[outLen];
+		memset(outBuffer, 0, outLen);
+
+		// iconv会写tempOutBuffer指针，最终其会指向转换未完成的部分
+		char* tempOutBuffer = outBuffer;
+		size_t ret = iconv(m_converter, (const char**)&srcStart, (size_t *)&srcLen, &tempOutBuffer, (size_t *)&outLen);
+		dst = outBuffer;
+
+	//	LOGD(dst.c_str());
+		delete[] outBuffer;
+	}
 }
 
 void IconvEncodingConverter::reset() {
